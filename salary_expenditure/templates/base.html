@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Dashboard{% endblock %} · Salary Expenditure Manager</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/favicon.svg') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+{% set ep = request.endpoint %}
+<div class="app">
+
+  <!-- ===== Sidebar navigation ===== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <img src="{{ url_for('static', filename='images/favicon.svg') }}" alt="" width="34" height="34">
+      <span>SalaryTrack</span>
+    </div>
+    <nav>
+      <a href="{{ url_for('dashboard') }}" class="{{ 'active' if ep == 'dashboard' }}"><span class="ico">📊</span> Dashboard</a>
+      <a href="{{ url_for('salary') }}" class="{{ 'active' if ep == 'salary' }}"><span class="ico">💼</span> Salary</a>
+      <a href="{{ url_for('add_expense') }}" class="{{ 'active' if ep == 'add_expense' }}"><span class="ico">➕</span> Add Expense</a>
+      <a href="{{ url_for('expenses') }}" class="{{ 'active' if ep in ('expenses', 'edit_expense') }}"><span class="ico">🧾</span> Expenses</a>
+      <a href="{{ url_for('reports') }}" class="{{ 'active' if ep == 'reports' }}"><span class="ico">📈</span> Reports</a>
+    </nav>
+    <div class="sidebar-foot">College Mini Project<br>Flask · SQLite</div>
+  </aside>
+  <div class="overlay" id="overlay"></div>
+
+  <!-- ===== Main area ===== -->
+  <div class="main">
+    <header class="topbar">
+      <button class="menu-btn" id="menuBtn" type="button" aria-label="Open menu">☰</button>
+      <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+    </header>
+
+    {# Flash messages (success / error) #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flashes">
+          {% for category, message in messages %}
+            <div class="alert alert-{{ 'success' if category == 'success' else 'error' }}" role="alert">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </div>
+</div>
+
+{% block scripts %}{% endblock %}
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

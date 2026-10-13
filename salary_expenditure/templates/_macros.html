@@ -1,0 +1,45 @@
+{# Reusable pieces used by several pages. Import with:  {% from "_macros.html" import ... with context %} #}
+
+{# Small coloured label for a category #}
+{% macro badge(category) -%}
+  <span class="badge" style="--c: {{ category_colors.get(category, '#64748b') }}">{{ category }}</span>
+{%- endmacro %}
+
+{# Table of expenses. Set actions=True to show Edit / Delete buttons. #}
+{% macro expense_table(rows, actions=False) %}
+  <div class="table-wrap">
+    <table class="table stack">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Expense</th>
+          <th>Category</th>
+          <th class="num">Amount</th>
+          {% if actions %}<th class="actions-col">Actions</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in rows %}
+        <tr>
+          <td data-label="Date">{{ e['date']|nice_date }}</td>
+          <td data-label="Expense">
+            <strong>{{ e['name'] }}</strong>
+            {% if e['description'] %}<div class="muted small">{{ e['description'] }}</div>{% endif %}
+          </td>
+          <td data-label="Category">{{ badge(e['category']) }}</td>
+          <td data-label="Amount" class="num">{{ e['amount']|money }}</td>
+          {% if actions %}
+          <td data-label="Actions" class="actions-col">
+            <a class="btn btn-small" href="{{ url_for('edit_expense', expense_id=e['id']) }}">Edit</a>
+            <form method="post" action="{{ url_for('delete_expense', expense_id=e['id']) }}"
+                  class="inline-form" data-confirm="Delete '{{ e['name']|e }}'? This cannot be undone.">
+              <button type="submit" class="btn btn-small btn-danger">Delete</button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endmacro %}

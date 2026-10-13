@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% from "_macros.html" import expense_table with context %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="toolbar">
+  <form method="get" action="{{ url_for('dashboard') }}" class="inline-form">
+    <label for="month" class="sr-only">Month</label>
+    <input type="month" id="month" name="month" value="{{ month }}" data-autosubmit>
+    <button type="submit" class="btn">View</button>
+  </form>
+  <div class="toolbar-right">
+    <a class="btn" href="{{ url_for('salary', month=month) }}">Update Salary</a>
+    <a class="btn btn-primary" href="{{ url_for('add_expense') }}">+ Add Expense</a>
+  </div>
+</div>
+
+{# Helpful messages about the month's status #}
+{% if s.status == 'no_salary' %}
+  <div class="alert alert-warning">
+    No salary has been set for {{ month_label }}.
+    <a href="{{ url_for('salary', month=month) }}">Set your salary</a> to see your balance and percentage spent.
+  </div>
+{% elif s.status == 'over' %}
+  <div class="alert alert-error">
+    ⚠ You have spent <strong>{{ (-s.remaining)|money }}</strong> more than your salary for {{ month_label }}.
+  </div>
+{% elif s.status == 'warning' %}
+  <div class="alert alert-warning">
+    Heads up: you have already used {{ '%.1f'|format(s.percent) }}% of your salary for {{ month_label }}.
+  </div>
+{% endif %}
+{% if s.carried and s.salary > 0 %}
+  <div class="alert alert-info">
+    No salary was saved for {{ month_label }}, so your most recent salary ({{ s.salary|money }}) is being used.
+    <a href="{{ url_for('salary', month=month) }}">Save it for this month</a>.
+  </div>
+{% endif %}
+
+<!-- ===== Summary cards ===== -->
+<section class="cards">
+  <div class="card stat">
+    <div class="stat-icon" style="--c:#4f46e5">💼</div>
+    <div>
+      <div class="stat-label">Monthly Salary</div>
+      <div class="stat-value">{{ s.salary|money }}</div>
+      <div class="stat-note">{{ month_label }}</div>
+    </div>
+  </div>
+
+  <div class="card stat">
+    <div class="stat-icon" style="--c:#ef4444">💸</div>
+    <div>
+      <div class="stat-label">Total Expenditure</div>
+      <div class="stat-value">{{ s.total|money }}</div>
+      <div class="stat-note">{{ breakdown|sum(attribute='count') }} transaction(s)</div>
+    </div>
+  </div>
+
+  <div class="card stat">
+    <div class="stat-icon" style="--c:{{ '#dc2626' if s.remaining < 0 else '#16a34a' }}">🏦</div>
+    <div>
+      <div class="stat-label">Remaining Balance</div>
+      <div class="stat-value {{ 'text-red' if s.remaining < 0 else 'text-green' }}">{{ s.remaining|money }}</div>
+      <div class="stat-note">{{ 'Over budget' if s.remaining < 0 else 'Still available' }}</div>
+    </div>
+  </div>
+
+  <div class="card stat">
+    <div class="stat-icon" style="--c:#f59e0b">📉</div>
+    <div class="grow">
+      <div class="stat-label">Salary Spent</div>
+      <div class="stat-value">
+        {% if s.percent is none %}N/A{% else %}{{ '%.1f'|format(s.percent) }}%{% endif %}
+      </div>
+      <div class="progress" title="Share of salary spent">
+        <div class="progress-bar status-{{ s.status }}" style="width: {{ s.bar }}%"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Chart and category breakdown ===== -->
+<section class="grid-2">
+  <div class="card">
+    <h2>Spending by Category</h2>
+    {% if breakdown %}
+      <div class="chart-box"><canvas id="categoryChart" aria-label="Doughnut chart of spending by category" role="img"></canvas></div>
+    {% else %}
+      <p class="empty">No expenses recorded for {{ month_label }} yet.<br>
+        <a href="{{ url_for('add_expense') }}">Add your first expense</a></p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Category Breakdown</h2>
+    {% if breakdown %}
+      <ul class="breakdown">
+        {% for b in breakdown %}
+        <li>
+          <div class="breakdown-top">
+            <span><span class="dot" style="background: {{ category_colors.get(b.category, '#64748b') }}"></span>{{ b.category }}</span>
+            <span><strong>{{ b.total|money }}</strong> <span class="muted small">({{ b.share }}%)</span></span>
+          </div>
+          <div class="progress thin"><div class="progress-bar" style="width: {{ b.share }}%; background: {{ category_colors.get(b.category, '#64748b') }}"></div></div>
+        </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty">Nothing to show yet.</p>
+    {% endif %}
+  </div>
+</section>
+
+<!-- ===== Recent transactions ===== -->
+<section class="card">
+  <div class="card-head">
+    <h2>Recent Transactions</h2>
+    <a href="{{ url_for('expenses') }}">View all →</a>
+  </div>
+  {% if recent %}
+    {{ expense_table(recent) }}
+  {% else %}
+    <p class="empty">No transactions for {{ month_label }}.</p>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+{% if breakdown %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>window.chartData = {{ chart_data|tojson }};</script>
+{% endif %}
+{% endblock %}

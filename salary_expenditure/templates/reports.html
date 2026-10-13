@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block page_title %}Reports{% endblock %}
+
+{% block content %}
+<div class="toolbar no-print">
+  <form method="get" action="{{ url_for('reports') }}" class="inline-form">
+    <label for="month" class="sr-only">Month</label>
+    <input type="month" id="month" name="month" value="{{ month }}" data-autosubmit>
+    <button type="submit" class="btn">View</button>
+  </form>
+  <div class="toolbar-right">
+    <button type="button" class="btn" data-print>🖨 Print / Save as PDF</button>
+  </div>
+</div>
+
+<!-- ===== Charts ===== -->
+<section class="grid-2">
+  <div class="card">
+    <h2>Expenses by Category · {{ month_label }}</h2>
+    {% if breakdown %}
+      <div class="chart-box"><canvas id="categoryChart" aria-label="Doughnut chart of spending by category" role="img"></canvas></div>
+    {% else %}
+      <p class="empty">No expenses recorded for {{ month_label }}.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Monthly Expenditure · {{ year }}</h2>
+    {% if year_has_data %}
+      <div class="chart-box"><canvas id="monthlyChart" aria-label="Bar chart of monthly expenditure" role="img"></canvas></div>
+    {% else %}
+      <p class="empty">No expenses recorded in {{ year }} yet.</p>
+    {% endif %}
+  </div>
+</section>
+
+<!-- ===== Monthly summary report ===== -->
+<section class="card report">
+  <div class="card-head">
+    <h2>Monthly Summary Report — {{ month_label }}</h2>
+  </div>
+
+  <div class="table-wrap">
+    <table class="table summary-table">
+      <tbody>
+        <tr><th>Monthly salary{% if s.carried %} <span class="muted small">(carried over)</span>{% endif %}</th><td class="num">{{ s.salary|money }}</td></tr>
+        <tr><th>Total expenditure</th><td class="num">{{ s.total|money }}</td></tr>
+        <tr><th>Remaining balance</th><td class="num {{ 'text-red' if s.remaining < 0 else 'text-green' }}">{{ s.remaining|money }}</td></tr>
+        <tr><th>Salary spent</th><td class="num">{% if s.percent is none %}N/A (no salary set){% else %}{{ '%.1f'|format(s.percent) }}%{% endif %}</td></tr>
+        <tr><th>Number of transactions</th><td class="num">{{ report.count }}</td></tr>
+        <tr><th>Average per transaction</th><td class="num">{{ report.average|money }}</td></tr>
+        <tr><th>Average per day ({{ report.days }} day{{ 's' if report.days != 1 }})</th><td class="num">{{ report.daily_average|money }}</td></tr>
+        <tr>
+          <th>Highest single expense</th>
+          <td class="num">
+            {% if report.biggest %}{{ report.biggest['amount']|money }} <span class="muted small">({{ report.biggest['name'] }}, {{ report.biggest['category'] }})</span>{% else %}—{% endif %}
+          </td>
+        </tr>
+        <tr>
+          <th>Top spending category</th>
+          <td class="num">
+            {% if report.top_category %}{{ report.top_category.category }} <span class="muted small">({{ report.top_category.total|money }}, {{ report.top_category.share }}%)</span>{% else %}—{% endif %}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="verdict status-text-{{ s.status }}">
+    {% if s.status == 'no_salary' %}
+      No salary is set for this month, so the balance and percentage cannot be judged. Please add your salary.
+    {% elif s.status == 'over' %}
+      You spent {{ (-s.remaining)|money }} more than your salary this month. Try to cut back in the biggest categories.
+    {% elif s.status == 'warning' %}
+      You have used {{ '%.1f'|format(s.percent) }}% of your salary — watch your spending for the rest of the month.
+    {% else %}
+      Good job! You still have {{ s.remaining|money }} left, which is {{ '%.1f'|format(100 - s.percent) }}% of your salary.
+    {% endif %}
+  </p>
+
+  {% if breakdown %}
+    <h3>Spending by category</h3>
+    <div class="table-wrap">
+      <table class="table stack">
+        <thead><tr><th>Category</th><th class="num">Transactions</th><th class="num">Amount</th><th class="num">Share</th></tr></thead>
+        <tbody>
+          {% for b in breakdown %}
+          <tr>
+            <td data-label="Category"><span class="dot" style="background: {{ category_colors.get(b.category, '#64748b') }}"></span>{{ b.category }}</td>
+            <td data-label="Transactions" class="num">{{ b.count }}</td>
+            <td data-label="Amount" class="num">{{ b.total|money }}</td>
+            <td data-label="Share" class="num">{{ b.share }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr><th>Total</th><th class="num">{{ report.count }}</th><th class="num">{{ s.total|money }}</th><th class="num">100%</th></tr>
+        </tfoot>
+      </table>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+{% if breakdown or year_has_data %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>window.chartData = {{ chart_data|tojson }};</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% from "_macros.html" import expense_table with context %}
+
+{% block title %}Expenses{% endblock %}
+{% block page_title %}All Expenses{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h2>Filter Transactions</h2>
+  <form method="get" action="{{ url_for('expenses') }}" class="filter-form">
+    <div class="field">
+      <label for="from">From date</label>
+      <input type="date" id="from" name="from" value="{{ filters['from'] }}">
+    </div>
+    <div class="field">
+      <label for="to">To date</label>
+      <input type="date" id="to" name="to" value="{{ filters['to'] }}">
+    </div>
+    <div class="field">
+      <label for="category">Category</label>
+      <select id="category" name="category">
+        <option value="">All categories</option>
+        {% for c in categories %}
+          <option value="{{ c }}" {{ 'selected' if filters.category == c }}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="q">Search</label>
+      <input type="search" id="q" name="q" placeholder="Name or description" value="{{ filters.q }}">
+    </div>
+    <div class="filter-actions">
+      <button type="submit" class="btn btn-primary">Apply</button>
+      {% if has_filters %}<a href="{{ url_for('expenses') }}" class="btn">Clear</a>{% endif %}
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <div class="card-head">
+    <h2>{{ rows|length }} transaction(s){% if has_filters %} <span class="muted small">(filtered)</span>{% endif %}</h2>
+    <div class="total-pill">Total: <strong>{{ total|money }}</strong></div>
+  </div>
+
+  {% if rows %}
+    {{ expense_table(rows, actions=True) }}
+  {% elif has_filters %}
+    <p class="empty">No expenses match your filters. <a href="{{ url_for('expenses') }}">Clear filters</a></p>
+  {% else %}
+    <p class="empty">You have not added any expenses yet.<br>
+      <a href="{{ url_for('add_expense') }}">Add your first expense</a></p>
+  {% endif %}
+</section>
+{% endblock %}

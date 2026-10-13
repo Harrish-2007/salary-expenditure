@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Add Expense{% endblock %}
+{% block page_title %}Add Expense{% endblock %}
+
+{% block content %}
+<section class="card narrow">
+  <h2>New Expense</h2>
+  {% set form_action = url_for('add_expense') %}
+  {% set submit_label = 'Save Expense' %}
+  {% include "_expense_form.html" %}
+</section>
+{% endblock %}
