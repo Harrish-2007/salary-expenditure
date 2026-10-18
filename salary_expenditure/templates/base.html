@@ -17,14 +17,23 @@
       <img src="{{ url_for('static', filename='images/favicon.svg') }}" alt="" width="34" height="34">
       <span>SalaryTrack</span>
     </div>
-    <nav>
+    {% if user %}<nav>
       <a href="{{ url_for('dashboard') }}" class="{{ 'active' if ep == 'dashboard' }}"><span class="ico">📊</span> Dashboard</a>
       <a href="{{ url_for('salary') }}" class="{{ 'active' if ep == 'salary' }}"><span class="ico">💼</span> Salary</a>
       <a href="{{ url_for('add_expense') }}" class="{{ 'active' if ep == 'add_expense' }}"><span class="ico">➕</span> Add Expense</a>
       <a href="{{ url_for('expenses') }}" class="{{ 'active' if ep in ('expenses', 'edit_expense') }}"><span class="ico">🧾</span> Expenses</a>
       <a href="{{ url_for('reports') }}" class="{{ 'active' if ep == 'reports' }}"><span class="ico">📈</span> Reports</a>
-    </nav>
-    <div class="sidebar-foot">College Mini Project<br>Flask · SQLite</div>
+    </nav>{% endif %}
+    <div class="sidebar-foot">
+      {% if user %}
+        <div class="who">Signed in as<br><strong>{{ user['name'] }}</strong></div>
+        <form method="post" action="{{ url_for('logout') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-small">Log out</button>
+        </form>
+      {% endif %}
+      <div class="muted small">College Mini Project<br>Flask · PostgreSQL</div>
+    </div>
   </aside>
   <div class="overlay" id="overlay"></div>
 

@@ -2,18 +2,18 @@
 Optional helper: fills the database with sample salary and expense data
 so you can see the dashboard and charts working straight away.
 
-Run it once from the project folder:
-    python seed_sample_data.py
+Register an account in the app first, then run (from the project folder):
+    python seed_sample_data.py you@example.com
 
 It adds data for the current month and the two months before it.
-It does nothing if you already have expenses saved (so it never mixes
+It does nothing if that account already has expenses saved (so it never mixes
 sample data with your real data).
 """
 
-import sqlite3
+import sys
 from datetime import date
 
-import app  # re-uses the database path and creates the tables
+import app  # re-uses the database connection code
 
 
 def shift_month(year, month, back):
@@ -43,35 +43,50 @@ SALARIES = [50000, 48000, 45000]
 
 
 def main():
-    db = sqlite3.connect(app.DATABASE)
+    if len(sys.argv) != 2:
+        sys.exit("Usage: python seed_sample_data.py <your_account_email>")
+    email = sys.argv[1].strip().lower()
+    if app.CONFIG_PROBLEMS:
+        sys.exit("Configuration problem: " + " ".join(app.CONFIG_PROBLEMS))
 
-    already = db.execute("SELECT COUNT(*) FROM expenses").fetchone()[0]
-    if already:
-        print(f"Database already has {already} expense(s). Nothing was added.")
-        db.close()
-        return
+    app.init_db()
+    db = app.connect()
+    try:
+        user = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+        if user is None:
+            sys.exit(f"No account with email {email}. Register in the app first.")
+        uid = user["id"]
 
-    today = date.today()
-    for back, salary in enumerate(SALARIES):
-        year, month = shift_month(today.year, today.month, back)
-        month_text = f"{year}-{month:02d}"
-        db.execute("INSERT OR REPLACE INTO salary (month, amount) VALUES (?, ?)", (month_text, salary))
+        already = db.execute(
+            "SELECT COUNT(*) AS n FROM expenses WHERE user_id = ?", (uid,)).fetchone()["n"]
+        if already:
+            print(f"This account already has {already} expense(s). Nothing was added.")
+            return
 
-        for day, name, amount, category, description in SAMPLE_EXPENSES:
-            # In the current month, do not create dates in the future.
-            if back == 0:
-                day = min(day, today.day)
-            # Make older months a little different so the bar chart is interesting.
-            amount = round(amount * (1 - 0.04 * back), 2)
+        today = date.today()
+        for back, salary in enumerate(SALARIES):
+            year, month = shift_month(today.year, today.month, back)
+            month_text = f"{year}-{month:02d}"
             db.execute(
-                "INSERT INTO expenses (name, amount, category, date, description) VALUES (?, ?, ?, ?, ?)",
-                (name, amount, category, f"{month_text}-{day:02d}", description),
-            )
+                "INSERT INTO salary (user_id, month, amount) VALUES (?, ?, ?) "
+                "ON CONFLICT (user_id, month) DO UPDATE SET amount = excluded.amount",
+                (uid, month_text, salary))
 
-    db.commit()
-    db.close()
+            for day, name, amount, category, description in SAMPLE_EXPENSES:
+                if back == 0:                       # no future dates this month
+                    day = min(day, today.day)
+                amount = round(amount * (1 - 0.04 * back), 2)
+                db.execute(
+                    "INSERT INTO expenses (user_id, name, amount, category, date, description) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (uid, name, amount, category, f"{month_text}-{day:02d}", description))
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
     print("Sample data added: 3 months of salary and 36 expenses.")
-    print("Now run:  python app.py")
 
 
 if __name__ == "__main__":

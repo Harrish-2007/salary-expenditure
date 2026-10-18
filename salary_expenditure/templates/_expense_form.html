@@ -1,6 +1,7 @@
 {# Form shared by "Add Expense" and "Edit Expense".
    Needs these variables: form_action, submit_label, form (values), errors (messages) #}
 <form method="post" action="{{ form_action }}" class="form" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="form-grid">
 
     <div class="field {{ 'has-error' if errors.name }}">

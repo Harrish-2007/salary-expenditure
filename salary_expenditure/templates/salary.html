@@ -9,6 +9,7 @@
     <p class="muted">Pick a month and type your salary. If that month already has a salary it will be updated.</p>
 
     <form method="post" action="{{ url_for('salary') }}" class="form" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="field {{ 'has-error' if errors.month }}">
         <label for="month">Month *</label>
         <input type="month" id="month" name="month" required value="{{ form.month }}">
@@ -40,7 +41,14 @@
             <tr>
               <td data-label="Month">{{ h.month }}</td>
               <td data-label="Salary" class="num">{{ h.amount|money }}</td>
-              <td data-label="" class="actions-col"><a class="btn btn-small" href="{{ url_for('salary', month=h.month) }}">Edit</a></td>
+              <td data-label="" class="actions-col">
+                <a class="btn btn-small" href="{{ url_for('salary', month=h.month) }}">Edit</a>
+                <form method="post" action="{{ url_for('delete_salary', month=h.month) }}" class="inline-form"
+                      data-confirm="Delete the salary saved for {{ h.month }}?">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                </form>
+              </td>
             </tr>
             {% endfor %}
           </tbody>

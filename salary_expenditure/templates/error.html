@@ -6,6 +6,11 @@
 <section class="card narrow center">
   <div class="error-code">{{ code }}</div>
   <p>{{ message }}</p>
+  {% if details %}
+    <ul class="muted small" style="text-align:left">
+      {% for d in details %}<li>{{ d }}</li>{% endfor %}
+    </ul>
+  {% endif %}
   <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Back to Dashboard</a>
 </section>
 {% endblock %}

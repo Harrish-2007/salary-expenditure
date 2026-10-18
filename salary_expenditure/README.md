@@ -1,204 +1,168 @@
-# Salary Expenditure Management System
+# SalaryTrack v2 – Salary Expenditure Management System
 
-A beginner-friendly college mini project built with **HTML, CSS, JavaScript, Python Flask and SQLite**.
-It helps you set a monthly salary, record daily expenses, and see how much you have spent and how much is left.
+Flask + HTML/CSS/JS web app. Each employee has their own account and sees only
+their own salary, expenses and reports. Data is stored in **PostgreSQL** online
+(and in a local **SQLite** file on your own computer if you do not set a database).
 
----
+## What was wrong in v1 and what changed
 
-## 1. What is this project? (simple explanation)
+| Problem in v1 | Root cause | Fix in v2 |
+|---|---|---|
+| **500 Internal Server Error** on Vercel | `app.py` created and wrote `database.db` next to the code. Vercel's code folder is read-only, so `init_db()` crashed when the app loaded. | The database is now PostgreSQL, set with `DATABASE_URL`. No files are written. |
+| Salary/expenses "stuck" at ₹30,000 | Most likely a `database.db` shipped with the deployment (reads work, writes fail on a read-only disk). Also, a month with no salary reuses the latest earlier one, so an old ₹30,000 keeps showing until you save that month. | Data lives in PostgreSQL. The carry-over rule is kept but is now labelled on the dashboard; edit/delete any month on the **Salary** page. |
+| Data lost on restart/redeploy | SQLite file inside a temporary server | PostgreSQL is a separate always-on database. |
+| All users share one set of data | No `user_id`, no login | `users` table + `user_id` on every salary and expense row; every query filters by the logged-in user. |
+| Hardcoded secret key | `"change-this-secret-key"` default | `SECRET_KEY` comes from an environment variable; the app refuses to start online without it. |
+| Unhelpful errors | Generic 500 page | Clear messages for missing settings, database connection problems, expired forms, and any other crash (the real error goes to the server log). |
 
-Imagine you get a salary every month. During the month you spend money on food, rent, travel and so on.
-This website lets you:
+Also new: CSRF protection on every form, hashed passwords, delete-salary, and a
+script to move your old v1 data into your new account.
 
-1. **Save your salary** for a month.
-2. **Add every expense** (name, amount, category, date, optional note).
-3. **See the result automatically**:
-   - Total Expenditure = sum of all expenses in the month
-   - Remaining Balance = Salary − Total Expenditure
-   - Salary Spent % = (Total Expenditure ÷ Salary) × 100
-4. **See charts** (doughnut chart by category, bar chart by month) and a **monthly summary report**.
-
-If your salary is 0 the app shows "N/A" instead of crashing, and if you spend more than your salary it shows a red warning and a negative balance.
-
----
-
-## 2. Folder structure
+## Project layout
 
 ```
-salary_expenditure/
-├── app.py                  <- the Flask "brain": pages, calculations, database code
-├── requirements.txt        <- list of Python packages to install (just Flask)
-├── seed_sample_data.py     <- optional: fills the app with sample data for testing
-├── database.db             <- created AUTOMATICALLY the first time you run app.py
-├── README.md               <- this guide
-├── PROJECT_REPORT.md       <- abstract, objectives, modules, etc. for your report
-├── templates/              <- HTML pages (Flask calls these "templates")
-│   ├── base.html           <- common layout: sidebar, top bar, messages
-│   ├── _macros.html        <- reusable pieces (category badge, expense table)
-│   ├── _expense_form.html  <- the form shared by Add and Edit pages
-│   ├── dashboard.html      <- home page with cards, chart, recent transactions
-│   ├── salary.html         <- enter / update monthly salary
-│   ├── add_expense.html    <- add a new expense
-│   ├── edit_expense.html   <- edit an existing expense
-│   ├── expenses.html       <- all expenses + filters (date, category, search)
-│   ├── reports.html        <- charts + monthly summary report
-│   └── error.html          <- friendly 404 / 405 / 500 page
-└── static/                 <- files the browser downloads as-is
-    ├── css/style.css       <- all the colours, layout and responsive design
-    ├── js/script.js        <- menu button, delete confirmation, charts
-    └── images/favicon.svg  <- the small logo / browser-tab icon
+app.py                  all routes, login, database code
+templates/              HTML pages (login.html and register.html are new)
+public/static/          css/js/images (served at /static/...)
+tests/test_app.py       24 automatic tests
+import_v1_data.py       copy old v1 data into your account
+seed_sample_data.py     optional demo data for an account
+requirements.txt        Flask + psycopg2-binary
+.env.example            names of the environment variables
 ```
 
-### Purpose of each file
+## 1. Run it locally in VS Code (Windows)
 
-| File | What it does |
-|---|---|
-| `app.py` | Creates the database, defines every page (route), validates input, does the calculations. |
-| `requirements.txt` | Tells `pip` which packages to install. |
-| `seed_sample_data.py` | Adds 3 months of sample salary and expenses so you can test quickly. |
-| `templates/base.html` | The page frame. Every other page "extends" it, so the sidebar is written only once. |
-| `templates/_macros.html` | Small reusable HTML helpers used on several pages. |
-| `templates/_expense_form.html` | One form used by both Add and Edit (no copy-paste). |
-| `templates/dashboard.html` | Summary cards, category chart, breakdown list, recent transactions. |
-| `templates/salary.html` | Salary form + salary history. |
-| `templates/add_expense.html` / `edit_expense.html` | Pages that wrap the expense form. |
-| `templates/expenses.html` | Full list with filters and Edit / Delete buttons. |
-| `templates/reports.html` | Doughnut chart, monthly bar chart, summary report, print button. |
-| `static/css/style.css` | Design: sidebar, cards, tables, forms, mobile layout, print layout. |
-| `static/js/script.js` | Mobile menu, "Are you sure?" on delete, and draws the charts. |
+Open the project folder in VS Code, then open **Terminal → New Terminal** (PowerShell):
 
-### How the database looks
-
-**salary** table: `id`, `month` (like `2026-10`), `amount`, `updated_at`
-**expenses** table: `id`, `name`, `amount`, `category`, `date`, `description`, `created_at`
-
-Both tables are created automatically when the app starts. All SQL uses `?` placeholders (parameterized queries), which protects against SQL injection.
-
----
-
-## 3. Setup on Windows with Visual Studio Code
-
-### Step 0 - Install the tools (one time only)
-1. Install **Python 3.9 or newer** from <https://www.python.org/downloads/>.
-   On the first installer screen, **tick "Add python.exe to PATH"**.
-2. Install **Visual Studio Code** from <https://code.visualstudio.com/>.
-3. In VS Code open the Extensions panel (`Ctrl+Shift+X`) and install the **Python** extension (by Microsoft).
-
-### Step 1 - Open the project
-1. Unzip `salary_expenditure.zip` (right-click → *Extract All*).
-2. In VS Code choose **File → Open Folder…** and select the `salary_expenditure` folder.
-3. Open a terminal inside VS Code: **Terminal → New Terminal** (shortcut: `` Ctrl+` ``).
-
-### Step 2 - Create a virtual environment (keeps packages tidy)
-```
-python -m venv venv
-```
-Activate it:
-```
+```powershell
+py -m venv venv
 venv\Scripts\activate
-```
-You should now see `(venv)` at the start of the terminal line.
-
-> **If PowerShell says "running scripts is disabled"**, run this once and try again:
-> `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`
-> (or switch the terminal to *Command Prompt* using the dropdown next to the **+** button).
-
-If VS Code asks *"We noticed a new environment…"*, click **Yes**. You can also pick it via `Ctrl+Shift+P` → *Python: Select Interpreter* → the one inside `venv`.
-
-### Step 3 - Install the dependencies
-```
 pip install -r requirements.txt
-```
-
-### Step 4 - (Optional) add sample data
-```
-python seed_sample_data.py
-```
-
-### Step 5 - Run the application
-```
 python app.py
 ```
-You will see something like:
+
+Open http://127.0.0.1:5000, click **Create an account**, then go to **Salary**
+and enter your salary. With no `DATABASE_URL` set, data is saved in a local file
+`salarytrack.db` (your old `database.db` is never touched).
+
+If PowerShell blocks `venv\Scripts\activate`, run once:
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+
+### Optional: run locally against PostgreSQL
+```powershell
+$env:DATABASE_URL = "postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require"
+python app.py
 ```
- * Running on http://127.0.0.1:5000
+
+## 2. Create the production database (free)
+
+Recommended: **Neon** (neon.tech) – free PostgreSQL that works well with Vercel.
+(Supabase also works.)
+
+1. Sign up at neon.tech → **Create project** (any name; pick the region closest to you).
+2. On the project page click **Connect** and copy the connection string. Use the
+   **pooled** one if offered. It looks like
+   `postgresql://user:password@ep-xxxx-pooler.region.aws.neon.tech/dbname?sslmode=require`.
+3. Keep it secret – it is a password. Never put it in code or on GitHub.
+
+You do **not** have to create tables by hand: the app creates them the first
+time it runs (`CREATE TABLE IF NOT EXISTS`, safe to repeat). For this project
+size that is the "migration". If you later change the table design, a tool such
+as Alembic can be added.
+
+## 3. Deploy on Vercel
+
+> I could not open Vercel's documentation while preparing this, so the Vercel
+> steps below come from my general knowledge and are **not verified**. If a
+> step looks different on screen, trust Vercel's current Flask guide.
+
+1. **Back up first.** On GitHub, create a branch from your current code
+   (e.g. `v1-backup`) so the original is never lost. Then put the v2 files on a
+   new branch (e.g. `v2`) and open a Pull Request, or replace `main` only after
+   you have tested.
+2. Make sure `.gitignore` is included so `.env`, `*.db` and `venv/` are not uploaded.
+3. Generate a secret key (any computer with Python):
+   `python -c "import secrets; print(secrets.token_hex(32))"`
+4. In Vercel: **Add New → Project →** import the GitHub repo (choose the v2 branch).
+5. Before clicking Deploy, open **Environment Variables** and add:
+   - `SECRET_KEY` = the random text from step 3
+   - `DATABASE_URL` = the Neon connection string
+6. Deploy. Vercel looks for `app.py` with a variable named `app` and installs
+   `requirements.txt`. Static files are in `public/static`, which Vercel serves directly.
+7. Open the site and register. If you see a page saying **"The server is not
+   configured yet"**, it lists exactly which variable is missing or wrong.
+   Any other error: Vercel dashboard → your project → **Logs**.
+
+Vercel's free plan runs the app as short-lived serverless functions. That is fine
+here because nothing is stored on the server – only in PostgreSQL.
+If you prefer a plain always-on server, Render or Railway also work with this
+code (start command: `gunicorn app:app`, and add `gunicorn` to `requirements.txt`).
+
+## 4. Move your old v1 data into your account (optional)
+
+1. Register in the app (locally or online).
+2. Run, from the project folder (for the **online** database, first set
+   `$env:DATABASE_URL = "..."` and `$env:SECRET_KEY = "..."` in the same terminal):
+
+```powershell
+python import_v1_data.py path\to\old\database.db you@example.com
 ```
 
-### Step 6 - Open it in the browser
-Open Chrome / Edge and go to **http://127.0.0.1:5000**
-(or hold `Ctrl` and click the link in the VS Code terminal).
-To stop the server press `Ctrl+C` in the terminal.
+The old file is opened read-only. Running it twice does not create duplicates.
 
-> **Charts need internet.** The chart library (Chart.js) is loaded from a CDN, so the doughnut and bar charts appear only when you are online. Everything else works offline.
+## 5. Run the automatic tests
 
----
+```powershell
+python -m unittest discover -s tests -v
+```
 
-## 4. Sample data for testing
+The 24 tests cover: login/logout/registration rules, CSRF, salary create/update/
+delete, expense add/edit/delete, calculations (remaining balance, percent, over
+budget), month boundaries, filters/search, employee separation, persistence
+after a restart, and error pages.
 
-The quickest way is `python seed_sample_data.py`. To enter data by hand instead:
+To run the same tests on a real PostgreSQL database, point `TEST_DATABASE_URL` at
+an **empty test database** (the tests delete all rows in it):
+```powershell
+$env:TEST_DATABASE_URL = "postgresql://USER:PASSWORD@HOST/TESTDB?sslmode=require"
+python -m unittest discover -s tests -v
+```
 
-**Salary** (page *Salary*): month = current month, amount = `50000`
+## 6. Manual testing checklist (do this after deploying)
 
-**Expenses** (page *Add Expense*):
+1. Open the site → you are sent to the login page.
+2. Create account **A** → you land on Salary. Enter ₹30,000 for this month → dashboard shows ₹30,000.00.
+3. Change it to ₹45,500 → dashboard shows ₹45,500.00 (it must **not** stay at 30,000).
+4. Add expenses: Rent ₹12,000, Food ₹3,200.50 → Total ₹15,200.50, remaining ₹30,299.50.
+5. Edit one expense's amount → totals update. Delete one → it disappears and totals update.
+6. Add an expense larger than the remaining balance → status turns to "over" with a negative balance.
+7. Try bad input (empty name, amount `-5` or `abc`, category missing) → clear red messages, nothing saved.
+8. **Persistence:** in Vercel redeploy (Deployments → ⋯ → Redeploy), then log in again → all data is still there.
+9. Log out, create account **B** (use another email or a private window) → B sees ₹0, no expenses.
+10. As B add a salary/expense → log back in as A: A's numbers are unchanged.
+11. While logged in as B, paste the URL of A's edit page (`/expenses/<A's id>/edit`) → "could not be found".
+12. Log in on a phone or another browser with account A → same data (multi-device).
+13. Visit `/nonexistent` → friendly 404 page.
+14. In Neon, open the **Tables** viewer: `users`, `salary`, `expenses` exist; passwords appear only as long hashes.
 
-| Name | Amount | Category | Date | Description |
-|---|---|---|---|---|
-| House Rent | 12000 | Rent | 1st of this month | Monthly rent |
-| Groceries | 3200 | Food | 2nd | Vegetables and groceries |
-| Electricity Bill | 1450 | Bills | 3rd | EB bill |
-| Bus Pass | 600 | Travel | 4th | |
-| Online Course | 1999 | Education | 5th | Python course |
-| Restaurant Dinner | 850 | Food | 7th | |
-| New Shoes | 2499 | Shopping | 9th | |
-| Doctor Visit | 700 | Healthcare | 11th | |
-| Movie Tickets | 500 | Others | 15th | |
+## 7. Where should data live? (your section 4 question)
 
-Expected result for the table above with salary 50000: **Total = ₹23,798.00**, **Remaining = ₹26,202.00**, **Spent = 47.6%**.
-
----
-
-## 5. How to test each feature
-
-| Feature | What to do | What you should see |
+| Option | Good | Bad |
 |---|---|---|
-| **Database auto-creation** | Delete `database.db`, run `python app.py` | A new `database.db` appears. |
-| **Salary** | *Salary* → month + `50000` → Save | Green message; dashboard shows ₹50,000.00. Save again with `55000` → it updates (no duplicate). |
-| **Add expense** | *Add Expense* → fill the form → Save | Green message; the dashboard totals change. |
-| **Validation** | Submit with empty name, amount `0`, or `-5` | Red messages under the fields; nothing is saved. |
-| **Edit** | *Expenses* → **Edit** → change the amount → Update | List shows the new amount. |
-| **Delete** | *Expenses* → **Delete** → OK | Row disappears; totals update. |
-| **Filter** | *Expenses* → choose a category / date range / search text → Apply | Only matching rows and a filtered total. Use **Clear** to reset. |
-| **Calculations** | Compare dashboard with the sample table above | Total, remaining and % match. |
-| **Salary = 0** | Save a salary of `0` | "N/A" for percentage and a yellow message, no crash. |
-| **Overspending** | Add expenses larger than the salary | Red warning, negative remaining balance, bar turns red. |
-| **Month switch** | Change the month picker on Dashboard/Reports | Numbers change for that month. |
-| **Charts** | Open *Dashboard* and *Reports* (internet needed) | Doughnut chart by category; bar chart of the year's monthly spending with a salary line. |
-| **Monthly report** | *Reports* | Summary table, verdict sentence, category table. **Print / Save as PDF** gives a clean printout. |
-| **Mobile view** | Press `F12` → device toolbar icon (`Ctrl+Shift+M`) | Sidebar hides behind the ☰ button; tables become cards. |
+| **Online PostgreSQL** (chosen) | Same data on every device; backups; real multi-user security; survives anything | Needs internet; you must keep the DB password secret |
+| **Browser storage** (`localStorage`) | Zero setup, works offline | ~5 MB limit, text only, lost if the user clears the browser, stuck on one device/browser, readable by any script on the page, no real accounts |
+| **IndexedDB** | Large offline storage, structured, works offline | Still one browser on one device; clearing site data deletes it; more complex code; no sharing or backup |
+| **SQLite file on the employee's PC** | Fast, familiar, works offline | A web app on a server cannot reach files on each employee's computer; you would need a desktop app (e.g. Electron) and separate backup/sync; no multi-device |
 
-### Common errors and fixes
+Offline use can be added later: keep PostgreSQL as the source of truth and cache
+data in IndexedDB, syncing when online.
 
-| Problem | Fix |
-|---|---|
-| `'python' is not recognized` | Reinstall Python and tick **Add python.exe to PATH**, or try `py` instead of `python`. |
-| `No module named flask` | The virtual environment is not active or packages are not installed. Run `venv\Scripts\activate` then `pip install -r requirements.txt`. |
-| PowerShell blocks `activate` | `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`, or use Command Prompt. |
-| `Address already in use` (port 5000) | Another program uses port 5000. Close it, or change the last line of `app.py` to `app.run(debug=True, port=5001)` and open `http://127.0.0.1:5001`. |
-| Page opens but charts are empty | You are offline, or there is no data for that month. Connect to the internet and refresh (`Ctrl+F5`). |
-| CSS looks old after editing | Hard refresh with `Ctrl+F5`. |
-| `TemplateNotFound` | Run `python app.py` from inside the `salary_expenditure` folder; the `templates` folder must be next to `app.py`. |
-| Want to start fresh | Stop the server, delete `database.db`, run again. |
+## Security notes and limits
 
----
-
-## 6. Features checklist
-
-- Dashboard: salary, total expenditure, remaining balance, % spent, category breakdown, recent transactions
-- Salary management (stored in SQLite, one value per month, update any time)
-- Expenses: add / view / edit / delete with 8 categories and optional description
-- Automatic calculations with zero-salary and over-spending handling
-- Reports: doughnut chart, monthly bar chart, filters by date and category, monthly summary report
-- Server-side validation, flash messages, parameterized SQL, friendly error pages
-- Responsive layout with sidebar navigation and mobile-friendly tables
-
-For the abstract, objectives, modules, advantages, limitations and future enhancements, see **PROJECT_REPORT.md**.
+- Passwords are hashed with Werkzeug; forms use a CSRF token; session cookies are
+  `HttpOnly`, `SameSite=Lax` and `Secure` online; all SQL uses parameters.
+- There is no "forgot password" email, no login rate-limiting and no email
+  verification yet. Add these before using it for real payroll data.
+- Amounts are stored as `NUMERIC(14,2)` in PostgreSQL. Currency symbol is `₹`
+  (change `CURRENCY` in `app.py`).

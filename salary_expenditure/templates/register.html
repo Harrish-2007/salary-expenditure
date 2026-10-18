@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Create account{% endblock %}
+{% block page_title %}Create account{% endblock %}
+
+{% block content %}
+<section class="card narrow">
+  <h2>New employee account</h2>
+  <p class="muted">Your salary and expenses are private to your account.</p>
+  <form method="post" action="{{ url_for('register') }}" class="form" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field {{ 'has-error' if errors.name }}">
+      <label for="name">Name *</label>
+      <input type="text" id="name" name="name" maxlength="60" required autocomplete="name" value="{{ form.name }}">
+      {% if errors.name %}<span class="field-error">{{ errors.name }}</span>{% endif %}
+    </div>
+    <div class="field {{ 'has-error' if errors.email }}">
+      <label for="email">Email *</label>
+      <input type="email" id="email" name="email" maxlength="254" required autocomplete="email" value="{{ form.email }}">
+      {% if errors.email %}<span class="field-error">{{ errors.email }}</span>{% endif %}
+    </div>
+    <div class="field {{ 'has-error' if errors.password }}">
+      <label for="password">Password * <span class="muted">(at least 8 characters)</span></label>
+      <input type="password" id="password" name="password" minlength="8" required autocomplete="new-password">
+      {% if errors.password %}<span class="field-error">{{ errors.password }}</span>{% endif %}
+    </div>
+    <div class="field {{ 'has-error' if errors.confirm }}">
+      <label for="confirm">Confirm password *</label>
+      <input type="password" id="confirm" name="confirm" required autocomplete="new-password">
+      {% if errors.confirm %}<span class="field-error">{{ errors.confirm }}</span>{% endif %}
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Create account</button>
+      <a href="{{ url_for('login') }}" class="btn">I already have an account</a>
+    </div>
+  </form>
+</section>
+{% endblock %}
